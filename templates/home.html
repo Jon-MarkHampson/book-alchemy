@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Book Alchemy - Home</title>
+    <style>
+      body {
+        font-family: sans-serif;
+      }
+      .book-list {
+        list-style: none;
+        padding: 0;
+      }
+      .book-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 15px;
+      }
+      .book-cover {
+        width: 100px;
+        margin-right: 15px;
+      }
+      .book-details h2 {
+        margin: 0 0 5px 0;
+        font-size: 1.2em;
+      }
+      .book-details p {
+        margin: 0;
+        color: #555;
+      }
+      .sort-options {
+        margin-bottom: 20px;
+      }
+      .sort-options a {
+        margin-right: 10px;
+        text-decoration: none;
+        padding: 5px 10px;
+        background-color: #f0f0f0;
+        border-radius: 3px;
+        color: #333;
+      }
+      .sort-options a:hover {
+        background-color: #ddd;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>My Library</h1>
+
+    <div class="sort-options">
+      <span>Sort by:</span>
+      <a href="{{ url_for('home', sort='title') }}">Title</a>
+      <a href="{{ url_for('home', sort='author') }}">Author</a>
+    </div>
+
+    <ul class="book-list">
+      {% for book in books %}
+      <li class="book-item">
+        {% if book.cover_url %}
+        <img
+          src="{{ book.cover_url }}"
+          alt="Cover for {{ book.title }}"
+          class="book-cover"
+        />
+        {% else %}
+        <div
+          class="book-cover"
+          style="
+            background-color: #ccc;
+            text-align: center;
+            line-height: 150px;
+            color: #fff;
+          "
+        >
+          No Cover
+        </div>
+        {% endif %}
+        <div class="book-details">
+          <h2>{{ book.title }}</h2>
+          <p>by {{ book.author }}</p>
+        </div>
+      </li>
+      {% else %}
+      <li>No books found in the library yet. Add some!</li>
+      {% endfor %}
+    </ul>
+
+    <hr />
+    <a href="{{ url_for('add_book') }}">Add New Book</a> |
+    <a href="{{ url_for('add_author') }}">Add New Author</a>
+  </body>
+</html>
