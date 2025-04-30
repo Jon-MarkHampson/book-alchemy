@@ -1,3 +1,6 @@
+<!--
+  This template extends the base layout and provides a form to add a new author.
+-->
 {% extends 'layout.html' %} {% block title %}Add Author{% endblock %} {% block
 content %}
 <h1>Add New Author</h1>
@@ -14,11 +17,10 @@ content %}
     <label for="date_of_death">Date of Death:</label>
     <input type="date" id="date_of_death" name="date_of_death" />
   </div>
-  {# Add Bio Textarea #}
   <div>
     <label for="bio">Biography:</label>
     <textarea id="bio" name="bio" rows="5"></textarea>
   </div>
-  <button type="submit">Add Author</button>
+  <button type="submit" class="btn btn-primary">Add Author</button>
 </form>
 {% endblock %}

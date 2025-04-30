@@ -1,3 +1,8 @@
+/*
+  This stylesheet defines the main look and feel for the Book Alchemy app.
+  All rules are formatted for readability and maintainability.
+  Button, form, and layout styles are consistent and modern.
+*/
 :root {
   /* Light Theme (Default) */
   --bg-color: #f8f9fa;
@@ -302,21 +307,20 @@ footer {
 }
 
 .book-cover {
-  max-width: 100%;
-  height: auto;
-  aspect-ratio: 2 / 3; /* Maintain a common book cover aspect ratio */
-  object-fit: cover; /* Re-add cover, but use aspect-ratio */
+  width: 100%;
+  max-width: 160px;
+  height: 240px;
+  object-fit: cover;
   display: block;
   margin: 0 auto 15px auto;
-  border-radius: 4px; /* Slightly round corners */
-  background-color: var(--placeholder-bg); /* Background for loading/missing */
+  border-radius: 4px;
+  background-color: var(--placeholder-bg);
 }
 
-/* Placeholder for missing cover - Use variables */
 .book-cover-placeholder {
   width: 100%;
-  aspect-ratio: 2 / 3; /* Match cover aspect ratio */
-  height: auto; /* Override fixed height */
+  max-width: 160px;
+  height: 240px;
   background-color: var(--placeholder-bg);
   display: flex;
   align-items: center;

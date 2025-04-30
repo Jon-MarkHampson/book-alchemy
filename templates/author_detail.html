@@ -1,3 +1,7 @@
+<!--
+  This template extends the base layout and displays the details for a single author.
+  Book covers are shown at a smaller size for the list view.
+-->
 {% extends 'layout.html' %} {% block title %}{{ author.name }}{% endblock %} {%
 block content %}
 <h1>{{ author.name }}</h1>
@@ -7,19 +11,15 @@ block content %}
   {% if author.death_date %} Died: {{ author.death_date.strftime('%B %d, %Y') }}
   {% endif %}
 </p>
-
-{# Display Bio #} {% if author.bio %}
+{% if author.bio %}
 <h2>Biography</h2>
 <p>{{ author.bio }}</p>
 {% endif %}
-
 <h2>Books by {{ author.name }}</h2>
 {% if author.books %}
 <ul class="book-list">
   {% for book in author.books %}
   <li class="book-item">
-    {# ... (existing book item structure from home.html can be adapted here if
-    desired) ... #}
     <a href="{{ url_for('book_detail', book_id=book.id) }}">
       {% if book.cover_url %}
       <img
@@ -28,7 +28,7 @@ block content %}
         class="book-cover"
         style="height: 150px; width: auto"
       />
-      {# Smaller cover for list #} {% else %}
+      {% else %}
       <div class="book-cover-placeholder" style="height: 150px; width: 100px">
         No Cover
       </div>
@@ -53,7 +53,7 @@ block content %}
 </ul>
 {% else %}
 <p>No books by this author found in the library.</p>
-{% endif %} {# --- Delete Author Form --- #}
+{% endif %}
 <form
   action="{{ url_for('delete_author', author_id=author.id) }}"
   method="POST"
@@ -62,7 +62,6 @@ block content %}
 >
   <button type="submit" class="btn btn-danger">Delete Author</button>
 </form>
-
 <hr />
 <a href="{{ url_for('home') }}">Back to Library</a>
 {% endblock %}

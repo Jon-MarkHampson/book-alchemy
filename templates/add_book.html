@@ -1,16 +1,14 @@
+<!--
+  This template extends the base layout and provides a form to add a new book.
+-->
 {% extends 'layout.html' %} {% block title %}Add New Book{% endblock %} {% block
 content %}
 <h1>Add a New Book</h1>
-
-{# Flashed messages are handled by layout.html #}
-
 <form method="POST">
   <label for="isbn">ISBN:</label><br />
   <input type="text" id="isbn" name="isbn" required /><br /><br />
-
   <label for="title">Title:</label><br />
   <input type="text" id="title" name="title" required /><br /><br />
-
   <label for="publication_year">Publication Date (YYYY-MM-DD):</label><br />
   <input
     type="date"
@@ -18,7 +16,6 @@ content %}
     name="publication_year"
     required
   /><br /><br />
-
   <label for="author_id">Author:</label><br />
   <select id="author_id" name="author_id" required>
     <option value="">Select an Author</option>
@@ -26,7 +23,6 @@ content %}
     <option value="{{ author.id }}">{{ author.name }}</option>
     {% endfor %}</select
   ><br /><br />
-
-  <input type="submit" value="Add Book" />
+  <button type="submit" class="btn btn-primary">Add Book</button>
 </form>
 {% endblock %}

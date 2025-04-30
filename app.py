@@ -1,46 +1,34 @@
 import os
 import re
 import requests
-from flask import Flask
+from flask import Flask, request, render_template, flash, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import or_
-from data_models import db, Author, Book
-from flask import request, render_template, flash
-from flask import redirect, url_for
 from datetime import datetime
+from data_models import db, Author, Book
 import seed
 
 app = Flask(__name__)
 
-# Get absolute path to project directory
+# Set up the base directory and database URI
 basedir = os.path.abspath(os.path.dirname(__file__))
-
-# Use an absolute path for SQLite URI
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + \
     os.path.join(basedir, 'data', 'library.sqlite')
-# Add a secret key for flash messages
 app.config['SECRET_KEY'] = 'your_secret_key'
 
 db.init_app(app)
-
-# Register the seed command
 seed.init_cli(app)
 
-# Create tables if they don't exist
-# It's generally better to use Flask-Migrate for handling database creation/updates,
-# but for simplicity, we'll keep create_all() for now.
-# Ensure this runs *after* db is initialized but *before* the first request if needed,
-# or handle it via a separate CLI command.
+# Create tables if they don't exist. For production, use Flask-Migrate.
 with app.app_context():
     db.create_all()
 
 
 def is_valid_isbn(isbn):
-    """Basic ISBN format check (doesn't validate checksum)."""
+    """Check if the ISBN is in a valid format (not a checksum validation)."""
     if not isbn:
         return False
     isbn = isbn.replace("-", "").replace(" ", "").upper()
-    # Check for ISBN-10 or ISBN-13 format
     if len(isbn) == 10 and (isbn[:-1].isdigit() and (isbn[-1].isdigit() or isbn[-1] == 'X')):
         return True
     if len(isbn) == 13 and isbn.isdigit():
@@ -73,7 +61,7 @@ def home():
     invalid_isbns = []
     updated_books = False
 
-    # --- Cover and Synopsis Fetching Logic ---
+    # Fetch covers and synopses if missing
     for book in books:
         cover_url = book.cover_url
         synopsis = book.synopsis  # Get existing synopsis
@@ -82,7 +70,7 @@ def home():
 
         # --- Fetch if cover OR synopsis is missing ---
         if not cover_url or not synopsis:
-            print(f"Checking external sources for '{book.title}'...")
+            # Attempt to fetch missing data from external sources
             # Reset fetch methods if we are attempting a fetch
             if not cover_url:
                 fetch_method_cover = "None"
@@ -124,12 +112,10 @@ def home():
                                 fetch_method_synopsis = "Google Books (ISBN)"
                                 print(
                                     f"Found synopsis for '{book.title}' via {fetch_method_synopsis}")
-                except requests.exceptions.RequestException as e:
-                    print(
-                        f"Google Books API (ISBN) error for '{book.title}' (ISBN: {book.isbn}): {e}")
-                except Exception as e:
-                    print(
-                        f"Unexpected error fetching from Google Books (ISBN) for '{book.title}': {e}")
+                except requests.exceptions.RequestException:
+                    pass
+                except Exception:
+                    pass
 
             # --- Attempt 2: Open Library Covers API by ISBN (Only for covers) ---
             if not cover_url and book.isbn:
@@ -166,12 +152,10 @@ def home():
                     else:
                         print(
                             f"No valid cover found on Open Library for '{book.title}' (Status: {head_response.status_code}, Content-Type: {head_response.headers.get('Content-Type')})")
-                except requests.exceptions.RequestException as e:
-                    print(
-                        f"Open Library Covers API error for '{book.title}' (ISBN: {book.isbn}): {e}")
-                except Exception as e:
-                    print(
-                        f"Unexpected error fetching from Open Library for '{book.title}': {e}")
+                except requests.exceptions.RequestException:
+                    pass
+                except Exception:
+                    pass
 
             # --- Attempt 3: Google Books API by Title + Author (if other methods failed) ---
             if not cover_url or not synopsis:
@@ -205,26 +189,24 @@ def home():
                                 fetch_method_synopsis = "Google Books (Title+Author)"
                                 print(
                                     f"Found synopsis for '{book.title}' via {fetch_method_synopsis}")
-                except requests.exceptions.RequestException as e:
-                    print(
-                        f"Google Books API (Title+Author) error for '{book.title}': {e}")
-                except Exception as e:
-                    print(
-                        f"Unexpected error fetching from Google Books (Title+Author) for '{book.title}': {e}")
+                except requests.exceptions.RequestException:
+                    pass
+                except Exception:
+                    pass
 
-            # --- Update the database if new data was found ---
-            if fetch_method_cover not in ["Cached", "None"] or fetch_method_synopsis not in ["Cached", "None"]:
-                if fetch_method_cover not in ["Cached", "None"]:
-                    print(f"Caching cover URL for '{book.title}': {cover_url}")
-                    book.cover_url = cover_url
-                if fetch_method_synopsis not in ["Cached", "None"]:
-                    print(f"Caching synopsis for '{book.title}'")
-                    book.synopsis = synopsis
-                db.session.add(book)
-                updated_books = True
-            elif fetch_method_cover == "None" and fetch_method_synopsis == "None":
-                print(
-                    f"Could not find cover or synopsis for '{book.title}' from any source.")
+        # --- Update the database if new data was found ---
+        if fetch_method_cover not in ["Cached", "None"] or fetch_method_synopsis not in ["Cached", "None"]:
+            if fetch_method_cover not in ["Cached", "None"]:
+                print(f"Caching cover URL for '{book.title}': {cover_url}")
+                book.cover_url = cover_url
+            if fetch_method_synopsis not in ["Cached", "None"]:
+                print(f"Caching synopsis for '{book.title}'")
+                book.synopsis = synopsis
+            db.session.add(book)
+            updated_books = True
+        elif fetch_method_cover == "None" and fetch_method_synopsis == "None":
+            print(
+                f"Could not find cover or synopsis for '{book.title}' from any source.")
 
         # --- Append data for template ---
         books_data.append({
