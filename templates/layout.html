@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>{% block title %}Book Alchemy{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <header>
+      <h1>Book Alchemy</h1>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="{{ url_for('home') }}">Home</a></li>
+          <li><a href="{{ url_for('add_author') }}">Add Author</a></li>
+          <li><a href="{{ url_for('add_book') }}">Add Book</a></li>
+        </ul>
+        <button id="theme-toggle">Toggle Theme</button>
+      </nav>
+    </header>
+
+    <hr />
+
+    {# Display flashed messages #} {% with messages =
+    get_flashed_messages(with_categories=true) %} {% if messages %}
+    <ul class="flash-messages">
+      {% for category, message in messages %}
+      <li class="flash-{{ category }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %} {% endwith %}
+
+    <main>{% block content %}{% endblock %}</main>
+
+    <footer>
+      <p>&copy; 2025 Book Alchemy | Jon-Mark Hampson</p>
+    </footer>
+
+    <script>
+      const themeToggle = document.getElementById("theme-toggle");
+      const body = document.body;
+      const currentTheme = localStorage.getItem("theme");
+
+      // Apply saved theme on load
+      if (currentTheme === "dark") {
+        body.classList.add("dark-mode");
+        themeToggle.textContent = "Light Mode"; // Update button text
+      } else {
+        themeToggle.textContent = "Dark Mode"; // Default button text
+      }
+
+      themeToggle.addEventListener("click", () => {
+        body.classList.toggle("dark-mode");
+        let theme = "light";
+        if (body.classList.contains("dark-mode")) {
+          theme = "dark";
+          themeToggle.textContent = "Light Mode";
+        } else {
+          themeToggle.textContent = "Dark Mode";
+        }
+        localStorage.setItem("theme", theme);
+      });
+    </script>
+  </body>
+</html>

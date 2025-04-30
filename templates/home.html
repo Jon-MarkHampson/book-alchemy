@@ -1,93 +1,87 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Book Alchemy - Home</title>
-    <style>
-      body {
-        font-family: sans-serif;
-      }
-      .book-list {
-        list-style: none;
-        padding: 0;
-      }
-      .book-item {
-        display: flex;
-        align-items: flex-start;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 15px;
-      }
-      .book-cover {
-        width: 100px;
-        margin-right: 15px;
-      }
-      .book-details h2 {
-        margin: 0 0 5px 0;
-        font-size: 1.2em;
-      }
-      .book-details p {
-        margin: 0;
-        color: #555;
-      }
-      .sort-options {
-        margin-bottom: 20px;
-      }
-      .sort-options a {
-        margin-right: 10px;
-        text-decoration: none;
-        padding: 5px 10px;
-        background-color: #f0f0f0;
-        border-radius: 3px;
-        color: #333;
-      }
-      .sort-options a:hover {
-        background-color: #ddd;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>My Library</h1>
+{% extends 'layout.html' %} {% block title %}Book Alchemy - Home{% endblock %}
+{% block content %}
 
-    <div class="sort-options">
-      <span>Sort by:</span>
-      <a href="{{ url_for('home', sort='title') }}">Title</a>
-      <a href="{{ url_for('home', sort='author') }}">Author</a>
-    </div>
+<h1>My Library</h1>
 
-    <ul class="book-list">
-      {% for book in books %}
-      <li class="book-item">
-        {% if book.cover_url %}
-        <img
-          src="{{ book.cover_url }}"
-          alt="Cover for {{ book.title }}"
-          class="book-cover"
-        />
-        {% else %}
-        <div
-          class="book-cover"
-          style="
-            background-color: #ccc;
-            text-align: center;
-            line-height: 150px;
-            color: #fff;
-          "
-        >
-          No Cover
-        </div>
-        {% endif %}
-        <div class="book-details">
-          <h2>{{ book.title }}</h2>
-          <p>by {{ book.author }}</p>
-        </div>
-      </li>
+{# Add Search Form #}
+<form method="GET" action="{{ url_for('home') }}" class="search-form">
+  <input
+    type="text"
+    name="search_query"
+    placeholder="Search by title or author..."
+    value="{{ request.args.get('search_query', '') }}"
+  />
+  {# Add btn and btn-primary classes #}
+  <button type="submit" class="btn btn-primary">Search</button>
+  {# Add a clear button if a search is active #} {% if
+  request.args.get('search_query') %} {# Add btn and btn-secondary classes #}
+  <a href="{{ url_for('home') }}" class="btn btn-secondary clear-search"
+    >Clear</a
+  >
+  {% endif %}
+</form>
+
+<div class="sort-options">
+  <span>Sort by:</span>
+  <a href="{{ url_for('home', sort='title') }}">Title</a>
+  <a href="{{ url_for('home', sort='author') }}">Author</a>
+</div>
+
+{# Display message if no books found after search #} {% if not books and
+request.args.get('search_query') %}
+<p>
+  No books found matching your search criteria: "{{
+  request.args.get('search_query') }}"
+</p>
+{% endif %}
+
+<ul class="book-list">
+  {% for book in books %}
+  <li class="book-item">
+    {# Wrap the cover image/placeholder in a link to the book detail page #}
+    <a href="{{ url_for('book_detail', book_id=book.id) }}">
+      {% if book.cover_url %}
+      <img
+        src="{{ book.cover_url }}"
+        alt="Cover for {{ book.title }}"
+        class="book-cover"
+      />
       {% else %}
-      <li>No books found in the library yet. Add some!</li>
-      {% endfor %}
-    </ul>
-
-    <hr />
-    <a href="{{ url_for('add_book') }}">Add New Book</a> |
-    <a href="{{ url_for('add_author') }}">Add New Author</a>
-  </body>
-</html>
+      <div
+        class="book-cover"
+        style="
+          background-color: #ccc;
+          text-align: center;
+          line-height: 150px;
+          color: #fff;
+        "
+      >
+        No Cover
+      </div>
+      {% endif %}
+    </a>
+    <div class="book-details">
+      {# Link the title to the book detail page #}
+      <h2>
+        <a href="{{ url_for('book_detail', book_id=book.id) }}"
+          >{{ book.title }}</a
+        >
+      </h2>
+      {# Link the author to the author detail page and add rating #}
+      <p>
+        by
+        <a href="{{ url_for('author_detail', author_id=book.author_id) }}"
+          >{{ book.author }}</a
+        >
+        {# Add star emoji next to rating #} {% if book.rating %} (Rating: {{
+        book.rating }}/10 ⭐) {% endif %}
+      </p>
+    </div>
+  </li>
+  {% else %} {# Modify the 'no books' message based on whether a search was
+  performed #} {% if request.args.get('search_query') %} {# Message already
+  handled above #} {% else %}
+  <li>No books found in the library yet. Add some!</li>
+  {% endif %} {% endfor %}
+</ul>
+{% endblock %}

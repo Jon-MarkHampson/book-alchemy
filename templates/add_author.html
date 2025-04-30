@@ -1,32 +1,24 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Add New Author</title>
-  </head>
-  <body>
-    <h1>Add a New Author</h1>
-
-    {% with messages = get_flashed_messages(with_categories=true) %} {% if
-    messages %}
-    <ul class="flashes">
-      {% for category, message in messages %}
-      <li class="{{ category }}">{{ message }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %} {% endwith %}
-
-    <form method="POST">
-      <label for="name">Name:</label><br />
-      <input type="text" id="name" name="name" required /><br /><br />
-
-      <label for="birthdate">Birthdate (YYYY-MM-DD):</label><br />
-      <input type="date" id="birthdate" name="birthdate" required /><br /><br />
-
-      <label for="date_of_death">Date of Death (YYYY-MM-DD, optional):</label
-      ><br />
-      <input type="date" id="date_of_death" name="date_of_death" /><br /><br />
-
-      <input type="submit" value="Add Author" />
-    </form>
-  </body>
-</html>
+{% extends 'layout.html' %} {% block title %}Add Author{% endblock %} {% block
+content %}
+<h1>Add New Author</h1>
+<form method="POST" action="{{ url_for('add_author') }}">
+  <div>
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name" required />
+  </div>
+  <div>
+    <label for="birthdate">Birth Date:</label>
+    <input type="date" id="birthdate" name="birthdate" />
+  </div>
+  <div>
+    <label for="date_of_death">Date of Death:</label>
+    <input type="date" id="date_of_death" name="date_of_death" />
+  </div>
+  {# Add Bio Textarea #}
+  <div>
+    <label for="bio">Biography:</label>
+    <textarea id="bio" name="bio" rows="5"></textarea>
+  </div>
+  <button type="submit">Add Author</button>
+</form>
+{% endblock %}

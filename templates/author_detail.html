@@ -1,0 +1,68 @@
+{% extends 'layout.html' %} {% block title %}{{ author.name }}{% endblock %} {%
+block content %}
+<h1>{{ author.name }}</h1>
+<p>
+  Born: {{ author.birth_date.strftime('%B %d, %Y') if author.birth_date else
+  'N/A' }}<br />
+  {% if author.death_date %} Died: {{ author.death_date.strftime('%B %d, %Y') }}
+  {% endif %}
+</p>
+
+{# Display Bio #} {% if author.bio %}
+<h2>Biography</h2>
+<p>{{ author.bio }}</p>
+{% endif %}
+
+<h2>Books by {{ author.name }}</h2>
+{% if author.books %}
+<ul class="book-list">
+  {% for book in author.books %}
+  <li class="book-item">
+    {# ... (existing book item structure from home.html can be adapted here if
+    desired) ... #}
+    <a href="{{ url_for('book_detail', book_id=book.id) }}">
+      {% if book.cover_url %}
+      <img
+        src="{{ book.cover_url }}"
+        alt="Cover for {{ book.title }}"
+        class="book-cover"
+        style="height: 150px; width: auto"
+      />
+      {# Smaller cover for list #} {% else %}
+      <div class="book-cover-placeholder" style="height: 150px; width: 100px">
+        No Cover
+      </div>
+      {% endif %}
+    </a>
+    <div class="book-details">
+      <h2>
+        <a href="{{ url_for('book_detail', book_id=book.id) }}"
+          >{{ book.title }}</a
+        >
+      </h2>
+      <p>
+        Published: {{ book.publication_date.strftime('%Y') if
+        book.publication_date else 'N/A' }}
+      </p>
+      {% if book.rating %}
+      <p>Rating: {{ book.rating }}/10 ⭐</p>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No books by this author found in the library.</p>
+{% endif %} {# --- Delete Author Form --- #}
+<form
+  action="{{ url_for('delete_author', author_id=author.id) }}"
+  method="POST"
+  style="margin-top: 20px"
+  onsubmit="return confirm('Are you sure you want to delete this author and all their books?');"
+>
+  <button type="submit" class="btn btn-danger">Delete Author</button>
+</form>
+
+<hr />
+<a href="{{ url_for('home') }}">Back to Library</a>
+{% endblock %}

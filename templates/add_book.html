@@ -1,44 +1,32 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Add New Book</title>
-  </head>
-  <body>
-    <h1>Add a New Book</h1>
+{% extends 'layout.html' %} {% block title %}Add New Book{% endblock %} {% block
+content %}
+<h1>Add a New Book</h1>
 
-    {% with messages = get_flashed_messages(with_categories=true) %} {% if
-    messages %}
-    <ul class="flashes">
-      {% for category, message in messages %}
-      <li class="{{ category }}">{{ message }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %} {% endwith %}
+{# Flashed messages are handled by layout.html #}
 
-    <form method="POST">
-      <label for="isbn">ISBN:</label><br />
-      <input type="text" id="isbn" name="isbn" required /><br /><br />
+<form method="POST">
+  <label for="isbn">ISBN:</label><br />
+  <input type="text" id="isbn" name="isbn" required /><br /><br />
 
-      <label for="title">Title:</label><br />
-      <input type="text" id="title" name="title" required /><br /><br />
+  <label for="title">Title:</label><br />
+  <input type="text" id="title" name="title" required /><br /><br />
 
-      <label for="publication_year">Publication Year:</label><br />
-      <input
-        type="number"
-        id="publication_year"
-        name="publication_year"
-        required
-      /><br /><br />
+  <label for="publication_year">Publication Date (YYYY-MM-DD):</label><br />
+  <input
+    type="date"
+    id="publication_year"
+    name="publication_year"
+    required
+  /><br /><br />
 
-      <label for="author_id">Author:</label><br />
-      <select id="author_id" name="author_id" required>
-        <option value="">Select an Author</option>
-        {% for author in authors %}
-        <option value="{{ author.id }}">{{ author.name }}</option>
-        {% endfor %}</select
-      ><br /><br />
+  <label for="author_id">Author:</label><br />
+  <select id="author_id" name="author_id" required>
+    <option value="">Select an Author</option>
+    {% for author in authors %}
+    <option value="{{ author.id }}">{{ author.name }}</option>
+    {% endfor %}</select
+  ><br /><br />
 
-      <input type="submit" value="Add Book" />
-    </form>
-  </body>
-</html>
+  <input type="submit" value="Add Book" />
+</form>
+{% endblock %}
