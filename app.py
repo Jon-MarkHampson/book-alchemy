@@ -1,11 +1,14 @@
 import os
-import re
-import requests
 from flask import Flask, request, render_template, flash, redirect, url_for
-from sqlalchemy import or_
 from datetime import datetime
 from data_models import db, Author, Book
 import seed
+from helpers import (
+    _build_book_query,
+    _fetch_and_update_book_metadata,
+    _update_db_if_needed,
+    _handle_invalid_isbns,
+)
 
 app = Flask(__name__)
 
@@ -40,218 +43,44 @@ def is_valid_isbn(isbn):
 
 @app.route("/")
 def home():
+    """Display the homepage with a list of books.
+
+    Handles sorting and searching of books.
+    Fetches book metadata (cover, synopsis) if missing and updates
+    the database.
+    """
     sort_by = request.args.get("sort", "title")
     search_query = request.args.get("search_query", "")
 
-    query = Book.query.options(db.joinedload(Book.author)).join(Author)
-
-    if search_query:
-        search_term = f"%{search_query}%"
-        query = query.filter(
-            or_(Book.title.ilike(search_term), Author.name.ilike(search_term))
-        )
-
-    if sort_by == "author":
-        query = query.order_by(Author.name)
-    else:
-        query = query.order_by(Book.title)
-
+    query = _build_book_query(sort_by, search_query)
     books = query.all()
 
     books_data = []
     invalid_isbns = []
     updated_books = False
 
-    # Fetch covers and synopses if missing
     for book in books:
-        cover_url = book.cover_url
-        synopsis = book.synopsis  # Get existing synopsis
-        fetch_method_cover = "Cached" if cover_url else "None"
-        fetch_method_synopsis = "Cached" if synopsis else "None"
+        cover_url, synopsis = _fetch_and_update_book_metadata(book)
 
-        # --- Fetch if cover OR synopsis is missing ---
-        if not cover_url or not synopsis:
-            # Attempt to fetch missing data from external sources
-            # Reset fetch methods if we are attempting a fetch
-            if not cover_url:
-                fetch_method_cover = "None"
-            if not synopsis:
-                fetch_method_synopsis = "None"
-
-            # --- ISBN Validation (only relevant for cover fetching, keep as is) ---
-            if not cover_url and not is_valid_isbn(book.isbn):
-                print(
-                    f"Warning: Potentially invalid ISBN format for '{book.title}': {book.isbn}"
-                )
-                invalid_isbns.append(
-                    {"id": book.id, "title": book.title, "isbn": book.isbn}
-                )
-
-            # --- Attempt 1: Google Books API by ISBN ---
-            if book.isbn and (not cover_url or not synopsis):
-                google_books_api_url_isbn = (
-                    f"https://www.googleapis.com/books/v1/volumes?q=isbn:{book.isbn}"
-                )
-                try:
-                    response = requests.get(google_books_api_url_isbn, timeout=5)
-                    response.raise_for_status()
-                    data = response.json()
-                    if data.get("totalItems", 0) > 0 and "items" in data:
-                        volume_info = data["items"][0].get("volumeInfo", {})
-                        # Fetch Cover
-                        if not cover_url:
-                            image_links = volume_info.get("imageLinks", {})
-                            new_cover_url = image_links.get(
-                                "thumbnail"
-                            ) or image_links.get("smallThumbnail")
-                            if new_cover_url:
-                                cover_url = new_cover_url
-                                fetch_method_cover = "Google Books (ISBN)"
-                                print(
-                                    f"Found cover for '{book.title}' via {fetch_method_cover}"
-                                )
-                        # Fetch Synopsis
-                        if not synopsis:
-                            new_synopsis = volume_info.get("description")
-                            if new_synopsis:
-                                synopsis = new_synopsis
-                                fetch_method_synopsis = "Google Books (ISBN)"
-                                print(
-                                    f"Found synopsis for '{book.title}' via {fetch_method_synopsis}"
-                                )
-                except requests.exceptions.RequestException:
-                    pass
-                except Exception:
-                    pass
-
-            # --- Attempt 2: Open Library Covers API by ISBN (Only for covers) ---
-            if not cover_url and book.isbn:
-                # ... existing Open Library cover fetching logic ...
-                # (No changes needed here as it only fetches covers)
-                print(f"Google Books failed for '{book.title}', trying Open Library...")
-                # Add default=false
-                open_library_cover_url = f"https://covers.openlibrary.org/b/isbn/{book.isbn}-M.jpg?default=false"
-                try:
-                    head_response = requests.head(
-                        open_library_cover_url, timeout=3, allow_redirects=True
-                    )
-                    if (
-                        head_response.status_code == 200
-                        and "image"
-                        in head_response.headers.get("Content-Type", "").lower()
-                    ):
-                        cover_url = open_library_cover_url
-                        fetch_method_cover = "Open Library (ISBN)"
-                        print(
-                            f"Found cover for '{book.title}' via {fetch_method_cover}"
-                        )
-                    elif head_response.status_code == 302:
-                        redirect_url = head_response.headers.get("Location")
-                        if (
-                            redirect_url
-                            and "notfound" not in redirect_url.lower()
-                            and "placeholder" not in redirect_url.lower()
-                        ):
-                            get_response = requests.get(
-                                open_library_cover_url, timeout=3, allow_redirects=True
-                            )
-                            if (
-                                get_response.status_code == 200
-                                and "image"
-                                in get_response.headers.get("Content-Type", "").lower()
-                            ):
-                                cover_url = get_response.url
-                                fetch_method_cover = "Open Library (ISBN - Redirect)"
-                                print(
-                                    f"Found cover for '{book.title}' via {fetch_method_cover}"
-                                )
-                            else:
-                                print(
-                                    f"Open Library redirect for '{book.title}' did not lead to a valid image."
-                                )
-                        else:
-                            print(
-                                f"Open Library redirect for '{book.title}' seems to be a placeholder."
-                            )
-                    else:
-                        print(
-                            f"No valid cover found on Open Library for '{book.title}' (Status: {head_response.status_code}, Content-Type: {head_response.headers.get('Content-Type')})"
-                        )
-                except requests.exceptions.RequestException:
-                    pass
-                except Exception:
-                    pass
-
-            # --- Attempt 3: Google Books API by Title + Author (if other methods failed) ---
-            if not cover_url or not synopsis:
-                print(f"Trying Google Books by Title+Author for '{book.title}'...")
-                query_title = re.sub(r"[^\w\s]", "", book.title)
-                query_author = re.sub(r"[^\w\s]", "", book.author.name)
-                google_books_api_url_title = f"https://www.googleapis.com/books/v1/volumes?q=intitle:{query_title}+inauthor:{query_author}"
-                try:
-                    response = requests.get(google_books_api_url_title, timeout=5)
-                    response.raise_for_status()
-                    data = response.json()
-                    if data.get("totalItems", 0) > 0 and "items" in data:
-                        volume_info = data["items"][0].get("volumeInfo", {})
-                        # Fetch Cover
-                        if not cover_url:
-                            image_links = volume_info.get("imageLinks", {})
-                            new_cover_url = image_links.get(
-                                "thumbnail"
-                            ) or image_links.get("smallThumbnail")
-                            if new_cover_url:
-                                cover_url = new_cover_url
-                                fetch_method_cover = "Google Books (Title+Author)"
-                                print(
-                                    f"Found cover for '{book.title}' via {fetch_method_cover}"
-                                )
-                        # Fetch Synopsis
-                        if not synopsis:
-                            new_synopsis = volume_info.get("description")
-                            if new_synopsis:
-                                synopsis = new_synopsis
-                                fetch_method_synopsis = "Google Books (Title+Author)"
-                                print(
-                                    f"Found synopsis for '{book.title}' via {fetch_method_synopsis}"
-                                )
-                except requests.exceptions.RequestException:
-                    pass
-                except Exception:
-                    pass
-
-        # --- Update the database if new data was found ---
-        if fetch_method_cover not in [
-            "Cached",
-            "None",
-        ] or fetch_method_synopsis not in ["Cached", "None"]:
-            if fetch_method_cover not in ["Cached", "None"]:
-                print(f"Caching cover URL for '{book.title}': {cover_url}")
-                book.cover_url = cover_url
-            if fetch_method_synopsis not in ["Cached", "None"]:
-                print(f"Caching synopsis for '{book.title}'")
-                book.synopsis = synopsis
-            db.session.add(book)
-            updated_books = True
-        elif fetch_method_cover == "None" and fetch_method_synopsis == "None":
-            print(
-                f"Could not find cover or synopsis for '{book.title}' from any source."
+        if not book.cover_url and not is_valid_isbn(book.isbn):
+            invalid_isbns.append(
+                {"id": book.id, "title": book.title, "isbn": book.isbn}
             )
 
-        # --- Append data for template ---
+        if _update_db_if_needed(book, cover_url, synopsis):
+            updated_books = True
+
         books_data.append(
             {
                 "id": book.id,
                 "title": book.title,
                 "author_id": book.author.id,
                 "author": book.author.name,
-                "cover_url": cover_url,
+                "cover_url": cover_url or book.cover_url,
                 "rating": book.rating,
-                # Synopsis is not needed on the home page list, but fetched if missing
             }
         )
 
-    # --- Commit updates ---
     if updated_books:
         try:
             db.session.commit()
@@ -261,15 +90,7 @@ def home():
             print(f"Error committing updates: {e}")
             flash("Error saving updated book details to the database.", "error")
 
-    if invalid_isbns:
-        isbn_links = [
-            f'<a href="{url_for('book_detail', book_id=item['id'])}">{item['title']} ({item['isbn']})</a>'
-            for item in invalid_isbns
-        ]
-        flash(
-            f"Warning: Found {len(invalid_isbns)} books with potentially invalid ISBN formats: {', '.join(isbn_links)}. Check console logs.",
-            "warning",
-        )
+    _handle_invalid_isbns(invalid_isbns)
 
     return render_template("home.html", books=books_data, search_query=search_query)
 
@@ -279,15 +100,16 @@ def home():
 
 @app.route("/book/<int:book_id>")
 def book_detail(book_id):
-    # Eager load author, no need to fetch synopsis here as it should be fetched by home()
+    """Display the detail page for a specific book."""
+    # Eager load author, no need to fetch synopsis here
+    # as it should be fetched by home()
     book = Book.query.options(db.joinedload(Book.author)).get_or_404(book_id)
-    # If synopsis is somehow still missing, we could add a fallback fetch here,
-    # but ideally home() handles it.
     return render_template("book_detail.html", book=book)
 
 
 @app.route("/author/<int:author_id>")
 def author_detail(author_id):
+    """Display the detail page for a specific author and their books."""
     # Use get_or_404 to handle cases where the author ID doesn't exist
     # Eager load books for the author detail page
     author = Author.query.options(db.joinedload(Author.books)).get_or_404(author_id)
@@ -299,6 +121,7 @@ def author_detail(author_id):
 
 @app.route("/book/<int:book_id>/rate", methods=["POST"])
 def rate_book(book_id):
+    """Rate a book and update its rating in the database."""
     book = Book.query.get_or_404(book_id)
     rating = request.form.get("rating", type=int)
     if rating is not None and 1 <= rating <= 10:
@@ -312,12 +135,13 @@ def rate_book(book_id):
 
 @app.route("/book/<int:book_id>/remove_cover", methods=["POST"])
 def remove_cover(book_id):
+    """Remove the cover URL for a book, allowing it to be re-fetched."""
     book = Book.query.get_or_404(book_id)
     if book.cover_url:
         book.cover_url = None
         db.session.commit()
         flash(
-            f'Cover removed for "{book.title}". It will be re-fetched on next load.',
+            f'Cover removed for "{book.title}".It will be re-fetched on next load.',
             "success",
         )
     else:
@@ -327,6 +151,7 @@ def remove_cover(book_id):
 
 @app.route("/book/<int:book_id>/delete", methods=["POST"])
 def delete_book(book_id):
+    """Delete a book from the database."""
     book = Book.query.get_or_404(book_id)
     try:
         db.session.delete(book)
@@ -341,6 +166,7 @@ def delete_book(book_id):
 
 @app.route("/author/<int:author_id>/delete", methods=["POST"])
 def delete_author(author_id):
+    """Delete an author and all their associated books from the database."""
     author = Author.query.get_or_404(author_id)
     author_name = author.name  # Get name before deleting
     try:
@@ -362,6 +188,11 @@ def delete_author(author_id):
 
 @app.route("/add_author", methods=["GET", "POST"])
 def add_author():
+    """Handle the addition of a new author.
+
+    GET: Displays the form to add an author.
+    POST: Processes the form submission and adds the author to the database.
+    """
     if request.method == "POST":
         name = request.form["name"]
         birthdate_str = request.form["birthdate"]
@@ -393,6 +224,11 @@ def add_author():
 
 @app.route("/add_book", methods=["GET", "POST"])
 def add_book():
+    """Handle the addition of a new book.
+
+    GET: Displays the form to add a book, populating authors for selection.
+    POST: Processes the form submission and adds the book to the database.
+    """
     authors = Author.query.order_by(Author.name).all()
     if request.method == "POST":
         isbn = request.form["isbn"]
